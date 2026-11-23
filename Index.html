@@ -1120,9 +1120,10 @@ const manualResult = document.getElementById('manualResult');
 
 // 1~4등별 과거 당첨 횟수와 가장 최근 당첨 회차를 계산
 // 1등: 6개 일치 / 2등: 5개+보너스 / 3등: 5개 / 4등: 4개
-function computeRankHistory(numbers){
+function computeRankHistory(numbers, beforeNo){
   const stats = [1,2,3,4].map(()=>({ count: 0, latest: null }));
   archive.forEach(entry=>{
+    if(beforeNo && entry.no >= beforeNo) return; // beforeNo가 있으면 그 회차 이전 기록만 계산
     const main = entry.nums.filter(n => numbers.includes(n)).length;
     const bonus = numbers.includes(entry.bonus);
     let rank = 0;
@@ -1366,6 +1367,18 @@ function renderArchiveRound(entry){
       winWrap.appendChild(item);
     });
     archiveResult.appendChild(winWrap);
+  }
+
+  // 이 회차의 당첨번호가 이전 회차들에서 1~4등으로 당첨된 횟수와 가장 최근 당첨일
+  if(archive && archive.length){
+    const hist = document.createElement('div');
+    hist.style.cssText = 'margin-top:14px;padding-top:12px;border-top:1px solid var(--line);';
+    const title = document.createElement('div');
+    title.className = 'modal-section-title';
+    title.textContent = '이 번호의 과거 당첨 내역 (' + entry.no + '회차 이전)';
+    hist.appendChild(title);
+    hist.appendChild(buildRankRows(computeRankHistory(entry.nums, entry.no)));
+    archiveResult.appendChild(hist);
   }
 }
 
