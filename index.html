@@ -4,10 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>로또 번호 추첨</title>
-<link rel="manifest" href="manifest.json">
-<link rel="icon" href="icon-192.png">
-<link rel="apple-touch-icon" href="icon-192.png">
-<meta name="theme-color" content="#0B1220">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -526,6 +522,93 @@
     font-family:'Space Grotesk',sans-serif;
   }
 
+  .manual{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:18px;
+    margin-bottom:24px;
+  }
+  .manual-title{
+    font-size:13px;
+    color:var(--text-muted);
+    margin-bottom:12px;
+  }
+  .manual-inputs{
+    display:grid;
+    grid-template-columns:repeat(6, 1fr);
+    gap:6px;
+    margin-bottom:12px;
+  }
+  .manual-inputs input{
+    width:100%;
+    min-width:0;
+    height:44px;
+    text-align:center;
+    background:var(--surface-2);
+    border:1px solid var(--line);
+    border-radius:10px;
+    color:var(--text);
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:16px;
+    padding:0;
+    -moz-appearance:textfield;
+  }
+  .manual-inputs input::-webkit-outer-spin-button,
+  .manual-inputs input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+  .manual-inputs input:focus{ outline:none; border-color:var(--accent); }
+  .manual-actions{
+    display:flex;
+    gap:8px;
+  }
+  .manual-actions button{
+    flex:1;
+    padding:12px;
+    border:none;
+    border-radius:10px;
+    background:var(--surface-3);
+    color:var(--text);
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+  }
+  .manual-actions button.primary{ background:var(--accent); color:#1a1404; }
+  .manual-actions button:active{ transform:scale(0.98); }
+  .manual-msg{
+    font-size:12px;
+    color:var(--ball-r);
+    min-height:16px;
+    margin-top:10px;
+  }
+  .manual-result{ margin-top:6px; }
+  .manual-rank-row{
+    display:grid;
+    grid-template-columns:40px 1fr;
+    gap:10px;
+    align-items:center;
+    background:var(--surface-2);
+    border-radius:10px;
+    padding:10px 12px;
+    margin-bottom:8px;
+  }
+  .manual-rank-label{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:14px;
+    color:var(--accent);
+  }
+  .manual-rank-count{
+    font-size:13px;
+    font-weight:700;
+  }
+  .manual-rank-last{
+    font-size:11.5px;
+    color:var(--text-muted);
+    margin-top:2px;
+  }
+
   .modal-overlay{
     position:fixed;
     inset:0;
@@ -684,6 +767,24 @@
     </div>
   </div>
 
+  <div class="manual">
+    <div class="manual-title">내 번호 당첨 이력 조회 (직접 입력)</div>
+    <div class="manual-inputs" id="manualInputs">
+      <input type="number" inputmode="numeric" min="1" max="45" aria-label="번호 1">
+      <input type="number" inputmode="numeric" min="1" max="45" aria-label="번호 2">
+      <input type="number" inputmode="numeric" min="1" max="45" aria-label="번호 3">
+      <input type="number" inputmode="numeric" min="1" max="45" aria-label="번호 4">
+      <input type="number" inputmode="numeric" min="1" max="45" aria-label="번호 5">
+      <input type="number" inputmode="numeric" min="1" max="45" aria-label="번호 6">
+    </div>
+    <div class="manual-actions">
+      <button type="button" id="manualClearBtn">지우기</button>
+      <button type="button" class="primary" id="manualCheckBtn">조회</button>
+    </div>
+    <div class="manual-msg" id="manualMsg"></div>
+    <div class="manual-result" id="manualResult"></div>
+  </div>
+
   <div class="history">
     <div class="history-title">지난 추첨 기록</div>
     <div id="historyList"><div class="history-empty">아직 추첨한 기록이 없어요.</div></div>
@@ -692,6 +793,7 @@
   <div class="archive">
     <div class="archive-title">역대 당첨번호 (1회 ~ 최신회차)</div>
     <div class="archive-status" id="archiveStatus">불러오는 중...</div>
+    <button type="button" class="archive-toggle" id="archiveRetryBtn" style="display:none;margin:0 0 12px;">데이터 다시 불러오기</button>
     <div class="archive-search">
       <input type="number" id="roundInput" placeholder="회차 번호 입력 (예: 1)" min="1">
       <button id="roundSearchBtn">조회</button>
@@ -831,7 +933,7 @@ function openDetailModal(numbers){
   });
 
   if(!archive || !archive.length){
-    modalCarryover.textContent = '역대 데이터를 아직 불러오는 중이에요.';
+    modalCarryover.textContent = notReadyMsg();
     modalSummary.textContent = '';
     modalList.innerHTML = '';
     detailOverlay.style.display = 'flex';
@@ -931,6 +1033,11 @@ function countRank4Matches(numbers){
   return count;
 }
 
+// 최근 6개월 이내 회차 중 정확히 4개가 일치하는 회차가 하나라도 있는지
+function hasRecentRank4Match(numbers){
+  return getRecentRoundsWindow().some(entry => entry.nums.filter(n => numbers.includes(n)).length === 4);
+}
+
 function hasHighRankMatch(numbers){
   if(!archive) return false;
   return archive.some(entry => entry.nums.filter(n => numbers.includes(n)).length >= 5);
@@ -948,16 +1055,20 @@ function buildCandidateSet(){
   }
 
   if(filterState.includeRecent4 && archive && archive.length){
-    const windowRounds = getRecentRoundsWindow();
-    if(windowRounds.length){
-      const round = windowRounds[Math.floor(Math.random()*windowRounds.length)];
-      let candidatePool = round.nums.slice();
-      if(filterState.excludeCarryover || filterState.includeOneCarryover){
-        const last = archive[archive.length - 1];
-        candidatePool = candidatePool.filter(n => !last.nums.includes(n));
+    const last = archive[archive.length - 1];
+    const dropCarryover = filterState.excludeCarryover || filterState.includeOneCarryover;
+    // 이월수 필터를 쓰면 직전 회차와 겹치는 번호가 빠지므로, 4개를 채울 수 있는 회차만 후보로 삼는다
+    const usable = getRecentRoundsWindow()
+      .map(r => ({ round: r, pool: dropCarryover ? r.nums.filter(n => !last.nums.includes(n)) : r.nums.slice() }))
+      .filter(x => x.pool.length >= 4);
+    if(usable.length){
+      const pick = usable[Math.floor(Math.random()*usable.length)];
+      const arr = pick.pool.slice();
+      for(let i = arr.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
       }
-      const shuffled = candidatePool.sort(()=> Math.random() - 0.5);
-      shuffled.slice(0, 4).forEach(n=>{
+      arr.slice(0, 4).forEach(n=>{
         if(!forced.includes(n)) forced.push(n);
       });
     }
@@ -995,13 +1106,112 @@ function generateSet(){
 
   if(filterState.includeRecent4 && archive && archive.length){
     let attempts = 0;
-    while((countRank4Matches(result) < 1 || countRank4Matches(result) > 3 || hasHighRankMatch(result)) && attempts < 200){
+    while((countRank4Matches(result) < 1 || countRank4Matches(result) > 3 || hasHighRankMatch(result) || !hasRecentRank4Match(result)) && attempts < 1000){
       result = buildCandidateSet();
       attempts++;
     }
   }
   return result;
 }
+
+/* ---------- 수동 번호 입력 조회 ---------- */
+const manualInputs = [...document.querySelectorAll('#manualInputs input')];
+const manualMsg = document.getElementById('manualMsg');
+const manualResult = document.getElementById('manualResult');
+
+// 1~4등별 과거 당첨 횟수와 가장 최근 당첨 회차를 계산
+// 1등: 6개 일치 / 2등: 5개+보너스 / 3등: 5개 / 4등: 4개
+function computeRankHistory(numbers){
+  const stats = [1,2,3,4].map(()=>({ count: 0, latest: null }));
+  archive.forEach(entry=>{
+    const main = entry.nums.filter(n => numbers.includes(n)).length;
+    const bonus = numbers.includes(entry.bonus);
+    let rank = 0;
+    if(main === 6) rank = 1;
+    else if(main === 5 && bonus) rank = 2;
+    else if(main === 5) rank = 3;
+    else if(main === 4) rank = 4;
+    if(!rank) return;
+    const s = stats[rank-1];
+    s.count++;
+    if(!s.latest || entry.no > s.latest.no) s.latest = entry;
+  });
+  return stats;
+}
+
+function readManualNumbers(){
+  const raw = manualInputs.map(i => i.value.trim());
+  if(raw.some(v => v === '')) return { error: '번호 6개를 모두 입력해주세요.' };
+  const nums = raw.map(v => Number(v));
+  if(nums.some(n => !Number.isInteger(n) || n < 1 || n > 45)) return { error: '번호는 1부터 45 사이의 정수여야 해요.' };
+  if(new Set(nums).size !== 6) return { error: '서로 다른 번호 6개를 입력해주세요. (중복된 번호가 있어요)' };
+  return { numbers: nums.sort((a,b)=>a-b) };
+}
+
+function checkManualNumbers(){
+  manualMsg.textContent = '';
+  manualResult.innerHTML = '';
+  const r = readManualNumbers();
+  if(r.error){ manualMsg.textContent = r.error; return; }
+  if(!archive || !archive.length){
+    manualMsg.textContent = notReadyMsg();
+    return;
+  }
+  const numbers = r.numbers;
+  const stats = computeRankHistory(numbers);
+
+  const ballsWrap = document.createElement('div');
+  ballsWrap.className = 'modal-balls';
+  numbers.forEach(n => ballsWrap.appendChild(makeBallEl(n, true)));
+  manualResult.appendChild(ballsWrap);
+
+  stats.forEach((s, i)=>{
+    const row = document.createElement('div');
+    row.className = 'manual-rank-row';
+    const label = document.createElement('div');
+    label.className = 'manual-rank-label';
+    label.textContent = (i+1) + '등';
+    const body = document.createElement('div');
+    const cnt = document.createElement('div');
+    cnt.className = 'manual-rank-count';
+    cnt.textContent = s.count + '회 당첨';
+    const last = document.createElement('div');
+    last.className = 'manual-rank-last';
+    last.textContent = s.latest
+      ? '가장 최근: ' + s.latest.no + '회차 (' + s.latest.date + ')'
+      : '당첨 이력 없음';
+    body.appendChild(cnt);
+    body.appendChild(last);
+    row.appendChild(label);
+    row.appendChild(body);
+    manualResult.appendChild(row);
+  });
+
+  const detailBtn = document.createElement('button');
+  detailBtn.type = 'button';
+  detailBtn.className = 'archive-toggle';
+  detailBtn.style.marginTop = '4px';
+  detailBtn.textContent = '회차별 상세 내역 보기 (5등 포함)';
+  detailBtn.addEventListener('click', ()=> openDetailModal(numbers));
+  manualResult.appendChild(detailBtn);
+}
+
+manualInputs.forEach((input, idx)=>{
+  input.addEventListener('input', ()=>{
+    if(input.value.length > 2) input.value = input.value.slice(0, 2);
+    if(input.value.length === 2 && manualInputs[idx+1]) manualInputs[idx+1].focus();
+  });
+  input.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter') checkManualNumbers();
+  });
+});
+document.getElementById('manualCheckBtn').addEventListener('click', checkManualNumbers);
+document.getElementById('manualClearBtn').addEventListener('click', ()=>{
+  manualInputs.forEach(i => i.value = '');
+  manualMsg.textContent = '';
+  manualResult.innerHTML = '';
+  manualInputs[0].focus();
+});
 
 function renderEmptyBalls(){
   resultsEl.innerHTML = '';
@@ -1156,7 +1366,7 @@ function renderArchiveRound(entry){
 function searchRound(){
   const n = parseInt(roundInput.value, 10);
   if(!archive){
-    archiveResult.innerHTML = '<div class="archive-empty">데이터를 아직 불러오는 중이에요. 잠시 후 다시 시도해주세요.</div>';
+    archiveResult.innerHTML = '<div class="archive-empty">' + notReadyMsg() + '</div>';
     return;
   }
   if(!n || n < 1){
@@ -1213,7 +1423,7 @@ function buildArchiveList(){
 
 function toggleArchiveList(){
   if(!archive){
-    archiveResult.innerHTML = '<div class="archive-empty">데이터를 아직 불러오는 중이에요. 잠시 후 다시 시도해주세요.</div>';
+    archiveResult.innerHTML = '<div class="archive-empty">' + notReadyMsg() + '</div>';
     return;
   }
   const showing = archiveList.style.display !== 'none';
@@ -1248,7 +1458,7 @@ function renderStats(mode){
   });
 
   if(!archive){
-    statsStatus.textContent = '데이터를 아직 불러오는 중이에요. 잠시 후 다시 시도해주세요.';
+    statsStatus.textContent = notReadyMsg();
     statsList.innerHTML = '';
     return;
   }
@@ -1316,28 +1526,107 @@ function toggleStats(){
   }
 }
 
-async function loadArchive(){
+/* 데이터 로딩 상태: 'loading' | 'ready' | 'failed' */
+let archiveState = 'loading';
+let archiveLastError = '';
+const CACHE_KEY = 'lotto-archive-cache-v1';
+const archiveRetryBtn = document.getElementById('archiveRetryBtn');
+
+function notReadyMsg(){
+  if(archiveState === 'failed'){
+    return '역대 데이터를 불러오지 못했어요. 인터넷 연결을 확인하고 위의 "데이터 다시 불러오기"를 눌러주세요.';
+  }
+  return '역대 데이터를 아직 불러오는 중이에요. 잠시 후 다시 시도해주세요.';
+}
+
+function mapRawArchive(raw){
+  return raw.map(d => ({
+    no: d.draw_no,
+    date: (d.date || '').slice(0, 10),
+    nums: d.numbers,
+    bonus: d.bonus_no,
+    divisions: d.divisions
+  }));
+}
+
+function saveArchiveCache(data){
+  try{ localStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), data })); }catch(e){}
+}
+
+function loadArchiveCache(){
   try{
-    const res = await fetch(ARCHIVE_URL);
-    const raw = await res.json();
-    archive = raw.map(d => ({
-      no: d.draw_no,
-      date: (d.date || '').slice(0, 10),
-      nums: d.numbers,
-      bonus: d.bonus_no,
-      divisions: d.divisions
-    }));
-    const latest = archive[archive.length - 1];
-    archiveStatus.className = 'archive-status ready';
-    archiveStatus.textContent = '총 ' + archive.length + '회차 데이터 로드 완료 · 최신 ' + latest.no + '회 (' + latest.date + ')';
-    renderArchiveRound(latest);
-    if(statsPanel.style.display !== 'none'){
-      renderStats(currentStatsMode);
-    }
-  }catch(err){
-    archiveStatus.textContent = '데이터를 불러오지 못했어요 (' + (err && err.message ? err.message : '알 수 없는 오류') + '). 이 파일을 다운로드해서 크롬/사파리 같은 실제 브라우저에서 직접 열어보세요. 채팅 미리보기 화면에서는 외부 데이터 요청이 차단될 수 있어요.';
+    const c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+    if(c && Array.isArray(c.data) && c.data.length) return c;
+  }catch(e){}
+  return null;
+}
+
+function applyArchive(data, note){
+  archive = data;
+  archiveState = 'ready';
+  archiveRetryBtn.style.display = 'none';
+  const latest = archive[archive.length - 1];
+  archiveStatus.className = 'archive-status ready';
+  archiveStatus.textContent = '총 ' + archive.length + '회차 데이터 로드 완료 · 최신 ' + latest.no + '회 (' + latest.date + ')' + (note ? ' ' + note : '');
+  renderArchiveRound(latest);
+  if(statsPanel.style.display !== 'none'){
+    renderStats(currentStatsMode);
   }
 }
+
+async function fetchArchiveOnce(){
+  const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(()=> ctrl.abort(), 20000) : null;
+  try{
+    const res = await fetch(ARCHIVE_URL, ctrl ? { signal: ctrl.signal } : undefined);
+    if(!res.ok) throw new Error('서버 응답 ' + res.status);
+    const raw = await res.json();
+    if(!Array.isArray(raw) || !raw.length) throw new Error('데이터 형식 오류');
+    return mapRawArchive(raw);
+  }finally{
+    if(timer) clearTimeout(timer);
+  }
+}
+
+async function loadArchive(){
+  archiveState = 'loading';
+  archiveRetryBtn.style.display = 'none';
+  archiveStatus.className = 'archive-status';
+  archiveStatus.textContent = '불러오는 중...';
+
+  let lastErr = null;
+  for(let attempt = 1; attempt <= 3; attempt++){
+    try{
+      const data = await fetchArchiveOnce();
+      saveArchiveCache(data);
+      applyArchive(data);
+      return;
+    }catch(err){
+      lastErr = err;
+      if(attempt < 3){
+        archiveStatus.textContent = '불러오는 중... (재시도 ' + attempt + '/2)';
+        await new Promise(res => setTimeout(res, 1200 * attempt));
+      }
+    }
+  }
+
+  // 모두 실패: 이전에 저장해 둔 데이터가 있으면 그걸로 동작
+  const cached = loadArchiveCache();
+  if(cached){
+    const d = new Date(cached.savedAt);
+    applyArchive(cached.data, '(오프라인: ' + d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + ' 저장본)');
+    archiveRetryBtn.style.display = 'block';
+    return;
+  }
+
+  archiveState = 'failed';
+  archiveLastError = (lastErr && lastErr.message) ? lastErr.message : '알 수 없는 오류';
+  archiveStatus.className = 'archive-status';
+  archiveStatus.textContent = '데이터를 불러오지 못했어요 (' + archiveLastError + '). 인터넷 연결을 확인해주세요.';
+  archiveRetryBtn.style.display = 'block';
+}
+
+archiveRetryBtn.addEventListener('click', loadArchive);
 
 async function runDraw(){
   if(drawing) return;
@@ -1402,12 +1691,6 @@ resultsEl.addEventListener('click', ()=>{
 
 renderEmptyBalls();
 loadArchive();
-
-if('serviceWorker' in navigator){
-  window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
-  });
-}
 </script>
 </body>
 </html>
